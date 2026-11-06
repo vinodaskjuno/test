@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fiddler LangGraph starter pack: build and test guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6F8; --surface:#FFFFFF; --ink:#18202E; --muted:#596273; --line:#DADEE5;
+  --accent:#3B3FB8; --accent-soft:#E9EAFB; --ok:#1F7A55; --ok-soft:#E3F3EC; --warn:#8A5A00; --warn-soft:#FBF1DC;
+  --code-bg:#1B2130; --code-ink:#E4E7EE; --code-line:#2C3446;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  color-scheme:light;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151D; --surface:#181D27; --ink:#E6E9EF; --muted:#9BA3B4; --line:#2A3140;
+    --accent:#A3A6F5; --accent-soft:#252856; --ok:#6FD3A6; --ok-soft:#143326; --warn:#F0C674; --warn-soft:#3A2D10;
+    --code-bg:#0C0F15; --code-ink:#E4E7EE; --code-line:#232A38; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151D; --surface:#181D27; --ink:#E6E9EF; --muted:#9BA3B4; --line:#2A3140;
+  --accent:#A3A6F5; --accent-soft:#252856; --ok:#6FD3A6; --ok-soft:#143326; --warn:#F0C674; --warn-soft:#3A2D10;
+  --code-bg:#0C0F15; --code-ink:#E4E7EE; --code-line:#232A38; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:calc(env(safe-area-inset-top,0px) + 64px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans);-webkit-text-size-adjust:100%}
+.wrap{max-width:800px;margin:0 auto;padding:40px 20px 80px}
+h1{font-size:2rem;line-height:1.2;font-weight:600;letter-spacing:-0.01em;margin:0 0 12px}
+h2{font-size:1.45rem;line-height:1.3;font-weight:600;margin:56px 0 8px}
+h3{font-size:1.1rem;font-weight:600;margin:0 0 6px}
+p{margin:0 0 14px}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em}
+p code,li code,td code,summary code{background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+.lede{color:var(--muted);font-size:1.08rem;max-width:64ch}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0 0}
+.chip{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 12px;font-size:.85rem;color:var(--muted)}
+.chip b{color:var(--ink);font-weight:500}
+
+/* architecture strip */
+.arch{display:grid;grid-template-columns:repeat(3,1fr);gap:0;margin:28px 0 0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--surface)}
+.arch div{padding:14px 16px;border-right:1px solid var(--line)}
+.arch div:last-child{border-right:0}
+.arch strong{display:block;font-weight:600;font-size:.95rem}
+.arch span{color:var(--muted);font-size:.88rem;line-height:1.45;display:block;margin-top:2px}
+@media (max-width:620px){.arch{grid-template-columns:1fr}.arch div{border-right:0;border-bottom:1px solid var(--line)}.arch div:last-child{border-bottom:0}}
+
+/* phases and steps share one rail */
+.steps{list-style:none;margin:20px 0 0;padding:0;counter-reset:s}
+.step{position:relative;padding:0 0 30px 52px;counter-increment:s}
+.step::before{content:counter(s);position:absolute;left:0;top:0;width:32px;height:32px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent);background:var(--bg);font:500 .9rem/29px var(--mono);text-align:center;z-index:1}
+.step::after{content:"";position:absolute;left:15.5px;top:34px;bottom:2px;width:1.5px;background:var(--line)}
+.step:last-child::after{display:none}
+.step.done::before{content:"✓";background:var(--ok);border-color:var(--ok);color:var(--surface)}
+.step-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;min-height:32px}
+.step-head h3{padding-top:4px}
+.mark{flex:none;display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--muted);cursor:pointer;user-select:none;padding:5px 2px}
+.mark input{width:16px;height:16px;accent-color:var(--ok);margin:0;cursor:pointer}
+.step p,.step ul{max-width:68ch}
+.step ul{padding-left:20px;margin:0 0 14px}
+.step li{margin-bottom:4px}
+
+/* code */
+.code{position:relative;margin:10px 0 16px;border-radius:8px;background:var(--code-bg);border:1px solid var(--code-line)}
+.code pre{margin:0;padding:14px 16px;overflow-x:auto;color:var(--code-ink);font:13.5px/1.6 var(--mono);tab-size:4}
+.code code{background:none;padding:0;font-size:inherit}
+.copy{position:absolute;top:8px;right:8px;font:500 12px var(--sans);color:#C9CEDA;background:#2A3243;border:1px solid #3A4458;border-radius:5px;padding:3px 10px;cursor:pointer}
+.copy:hover{background:#343E53}
+.copy.ok{color:#8FE3BC}
+.label{font-size:.82rem;color:var(--muted);margin:12px 0 -4px;font-weight:500}
+
+details.file{border:1px solid var(--line);border-radius:8px;background:var(--surface);margin:8px 0}
+details.file summary{cursor:pointer;padding:10px 14px;display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;list-style-position:inside}
+details.file .fname{font:500 .9rem var(--mono)}
+details.file .fnote{color:var(--muted);font-size:.86rem}
+details.file .code{margin:0 10px 10px}
+
+.expect{border-left:3px solid var(--ok);background:var(--ok-soft);padding:10px 14px;margin:10px 0 16px;border-radius:0}
+.expect strong{color:var(--ok);font-weight:600}
+.note{border-left:3px solid var(--warn);background:var(--warn-soft);padding:10px 14px;margin:10px 0 16px;border-radius:0}
+.note strong{color:var(--warn);font-weight:600}
+.expect p:last-child,.note p:last-child{margin:0}
+
+/* tabs */
+.tabbar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;gap:4px;border-bottom:1px solid var(--line);margin:24px 0 0;padding-top:8px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.tab{font:500 1rem var(--sans);color:var(--muted);background:none;border:0;border-bottom:2.5px solid transparent;padding:10px 16px 11px;cursor:pointer;margin-bottom:-1px}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
+.tab:hover{color:var(--ink)}
+.tab .count{font:400 .8rem var(--mono);color:var(--muted);margin-left:6px}
+.panel{padding-top:24px}
+.panel[hidden]{display:none}
+.progress{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 8px;color:var(--muted);font-size:.9rem}
+.reset{font:500 .85rem var(--sans);color:var(--accent);background:none;border:0;cursor:pointer;padding:4px 0}
+
+table{border-collapse:collapse;width:100%;font-size:.92rem;margin:8px 0 16px}
+.tbl{overflow-x:auto}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--line)}
+th{font-weight:600;font-size:.85rem;color:var(--muted)}
+footer{margin-top:56px;padding-top:20px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Fiddler LangGraph starter pack</h1>
+  <p class="lede">An implementation plan for a starter pack that gives every LangGraph agent Fiddler tracing without the agent’s code knowing about Fiddler, plus step-by-step tests for a new demo agent and an existing agent.</p>
+  <div class="meta">
+    <span class="chip">SDK <b>fiddler-langgraph 1.8.0</b></span>
+    <span class="chip">Python <b>3.11+</b></span>
+    <span class="chip">LangGraph <b>1.x</b></span>
+    <span class="chip">LLM <b>AWS Bedrock</b></span>
+    <span class="chip">Package <b>agent-starter 0.1.0</b></span>
+  </div>
+  <div class="arch">
+    <div><strong>Bootstrap package</strong><span>Pins the Fiddler SDK, reads settings from env vars, instruments LangGraph.</span></div>
+    <div><strong>Template</strong><span>Ready project for new agents. The customer edits one file.</span></div>
+    <div><strong>Launcher</strong><span><code>agent-starter-run</code> traces an existing agent with no code edits.</span></div>
+  </div>
+</header>
+
+<section id="plan">
+  <h2>Part 1: build the starter pack</h2>
+  <p>Do this once, on your side. Every file below is also in the <code>fiddler-agent-starter.zip</code> that came with this guide, so you can unzip it instead of copying by hand. Open a file to see its full contents.</p>
+
+  <ol class="steps" data-group="plan">
+    <li class="step" data-id="p1">
+      <div class="step-head"><h3>Create the repository layout</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p>One repo holds both pieces: the installable package in <code>src/</code> and the customer template in <code>template/</code>. The <code>examples/</code> folder holds an agent with no Fiddler code, for testing the existing-agent path.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>fiddler-agent-starter/
+├── pyproject.toml              # package definition, pins fiddler-langgraph
+├── README.md
+├── src/agent_starter/
+│   ├── __init__.py
+│   ├── config.py               # reads FIDDLER_* env vars
+│   ├── bootstrap.py            # init_fiddler(): client + instrumentation
+│   ├── auto.py                 # &quot;import agent_starter.auto&quot; option
+│   └── launcher.py             # agent-starter-run command
+├── template/                   # what new-agent customers start from
+│   ├── .env.example
+│   ├── .gitignore
+│   ├── requirements.txt
+│   ├── run.py                  # entry point, calls init_fiddler()
+│   └── agent/
+│       ├── __init__.py
+│       └── graph.py            # the only file the customer edits
+└── examples/existing-agent/    # a plain agent for testing
+    ├── app.py
+    └── requirements.txt</code></pre></div>
+    </li>
+
+    <li class="step" data-id="p2">
+      <div class="step-head"><h3>Define the package and pin the SDK</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p>The package depends on an exact <code>fiddler-langgraph</code> version, so every customer gets the combination you tested. It also registers the <code>agent-starter-run</code> command.</p>
+      <details class="file"><summary><span class="fname">pyproject.toml</span><span class="fnote">Pinned dependencies and the launcher command</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>[build-system]
+requires = [&quot;setuptools&gt;=68&quot;]
+build-backend = &quot;setuptools.build_meta&quot;
+
+[project]
+name = &quot;agent-starter&quot;
+version = &quot;0.1.0&quot;
+description = &quot;Starter pack: LangGraph agents with Fiddler tracing built in&quot;
+requires-python = &quot;&gt;=3.11&quot;
+dependencies = [
+    &quot;fiddler-langgraph==1.8.0&quot;,
+    &quot;langgraph&gt;=1.0,&lt;2.0&quot;,
+    &quot;python-dotenv&gt;=1.0&quot;,
+]
+
+[project.scripts]
+agent-starter-run = &quot;agent_starter.launcher:main&quot;
+
+[tool.setuptools.packages.find]
+where = [&quot;src&quot;]</code></pre></div></details>
+    </li>
+
+    <li class="step" data-id="p3">
+      <div class="step-head"><h3>Write the bootstrap</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p>This is the core of the starter pack. <code>init_fiddler()</code> loads <code>.env</code>, checks the three required settings, creates the <code>FiddlerClient</code>, and calls <code>LangGraphInstrumentor(client).instrument()</code>. If anything is missing it prints a clear message and lets the agent run untraced, so a customer without Fiddler credentials is never blocked.</p>
+      <details class="file"><summary><span class="fname">src/agent_starter/config.py</span><span class="fnote">Settings from environment variables</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;Reads Fiddler settings from environment variables.&quot;&quot;&quot;
+
+import os
+from dataclasses import dataclass
+
+REQUIRED_VARS = (&quot;FIDDLER_API_KEY&quot;, &quot;FIDDLER_APPLICATION_ID&quot;, &quot;FIDDLER_URL&quot;)
+
+
+@dataclass(frozen=True)
+class FiddlerSettings:
+    api_key: str
+    application_id: str
+    url: str
+    console_tracer: bool
+
+
+def _truthy(value: str | None) -&gt; bool:
+    return (value or &quot;&quot;).strip().lower() in (&quot;1&quot;, &quot;true&quot;, &quot;yes&quot;, &quot;on&quot;)
+
+
+def tracing_disabled() -&gt; bool:
+    return _truthy(os.getenv(&quot;AGENT_STARTER_DISABLE&quot;))
+
+
+def load_settings() -&gt; tuple[FiddlerSettings | None, list[str]]:
+    &quot;&quot;&quot;Returns (settings, missing_vars). settings is None if anything is missing.&quot;&quot;&quot;
+    missing = [name for name in REQUIRED_VARS if not os.getenv(name, &quot;&quot;).strip()]
+    if missing:
+        return None, missing
+    return (
+        FiddlerSettings(
+            api_key=os.environ[&quot;FIDDLER_API_KEY&quot;].strip(),
+            application_id=os.environ[&quot;FIDDLER_APPLICATION_ID&quot;].strip(),
+            url=os.environ[&quot;FIDDLER_URL&quot;].strip().rstrip(&quot;/&quot;),
+            console_tracer=_truthy(os.getenv(&quot;FIDDLER_CONSOLE_TRACER&quot;)),
+        ),
+        [],
+    )</code></pre></div></details>
+      <details class="file"><summary><span class="fname">src/agent_starter/bootstrap.py</span><span class="fnote">Creates the client and instruments LangGraph</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;Turns on Fiddler tracing for LangGraph. Safe to call more than once.&quot;&quot;&quot;
+
+import atexit
+import os
+import sys
+
+from dotenv import load_dotenv
+
+from agent_starter.config import load_settings, tracing_disabled
+
+_initialized = False
+_client = None
+
+
+def _say(message: str) -&gt; None:
+    print(f&quot;[agent-starter] {message}&quot;, file=sys.stderr, flush=True)
+
+
+def _flush_on_exit() -&gt; None:
+    if _client is None:
+        return
+    try:
+        _client.force_flush()
+    except Exception as exc:  # never crash the agent because of tracing
+        _say(f&quot;Could not flush traces on exit: {exc}&quot;)
+
+
+def init_fiddler(env_file: str | None = None):
+    &quot;&quot;&quot;Loads .env, creates the Fiddler client and instruments LangGraph.
+
+    Returns the FiddlerClient, or None when tracing is off. The agent keeps
+    running either way: missing settings only turn tracing off.
+    &quot;&quot;&quot;
+    global _initialized, _client
+    if _initialized:
+        return _client
+    _initialized = True
+
+    # Values already set in the shell win over the .env file.
+    load_dotenv(env_file or os.path.join(os.getcwd(), &quot;.env&quot;), override=False)
+
+    if tracing_disabled():
+        _say(&quot;Fiddler tracing is OFF (AGENT_STARTER_DISABLE is set).&quot;)
+        return None
+
+    settings, missing = load_settings()
+    if settings is None:
+        _say(&quot;Fiddler tracing is OFF. Missing: &quot; + &quot;, &quot;.join(missing))
+        _say(&quot;Set them in .env or your shell to turn tracing on.&quot;)
+        return None
+
+    try:
+        from fiddler_langgraph import FiddlerClient, LangGraphInstrumentor
+    except ImportError as exc:
+        _say(f&quot;Fiddler tracing is OFF. fiddler-langgraph is not installed ({exc}).&quot;)
+        return None
+
+    try:
+        _client = FiddlerClient(
+            application_id=settings.application_id,
+            api_key=settings.api_key,
+            url=settings.url,
+            console_tracer=settings.console_tracer,
+        )
+        LangGraphInstrumentor(_client).instrument()
+    except Exception as exc:
+        _client = None
+        _say(f&quot;Fiddler tracing is OFF. Setup failed: {exc}&quot;)
+        return None
+
+    atexit.register(_flush_on_exit)
+    _say(f&quot;Fiddler tracing is ON -&gt; {settings.url} (app {settings.application_id})&quot;)
+    return _client</code></pre></div></details>
+      <details class="file"><summary><span class="fname">src/agent_starter/__init__.py</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;Starter pack: turns on Fiddler tracing for any LangGraph agent.&quot;&quot;&quot;
+
+from agent_starter.bootstrap import init_fiddler
+
+__all__ = [&quot;init_fiddler&quot;]
+__version__ = &quot;0.1.0&quot;</code></pre></div></details>
+    </li>
+
+    <li class="step" data-id="p4">
+      <div class="step-head"><h3>Add the two no-code-change entry points</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p>The launcher turns tracing on and then runs the customer’s script unchanged, the same pattern as OpenTelemetry’s <code>opentelemetry-instrument</code>. <code>auto.py</code> is the fallback for platforms where the run command can’t be changed: one import line turns tracing on. The launcher also has <code>--check</code> to confirm setup before running anything.</p>
+      <details class="file"><summary><span class="fname">src/agent_starter/launcher.py</span><span class="fnote">agent-starter-run command</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;agent-starter-run: runs any Python agent with Fiddler tracing turned on.
+
+    agent-starter-run python app.py [args...]
+    agent-starter-run app.py [args...]
+    agent-starter-run python -m my_package.main [args...]
+    agent-starter-run --check
+&quot;&quot;&quot;
+
+import os
+import runpy
+import sys
+
+from agent_starter.bootstrap import init_fiddler
+
+USAGE = (
+    &quot;usage: agent-starter-run [python] SCRIPT.py [args...]\n&quot;
+    &quot;       agent-starter-run [python] -m MODULE [args...]\n&quot;
+    &quot;       agent-starter-run --check&quot;
+)
+
+
+def _check() -&gt; int:
+    from dotenv import load_dotenv
+
+    from agent_starter.config import REQUIRED_VARS
+
+    load_dotenv(os.path.join(os.getcwd(), &quot;.env&quot;), override=False)
+    ok = True
+    print(f&quot;Python: {sys.version.split()[0]}&quot;)
+    try:
+        import fiddler_langgraph
+
+        print(f&quot;fiddler-langgraph: {fiddler_langgraph.__version__}&quot;)
+    except ImportError:
+        print(&quot;fiddler-langgraph: NOT INSTALLED&quot;)
+        ok = False
+    for name in REQUIRED_VARS:
+        present = bool(os.getenv(name, &quot;&quot;).strip())
+        print(f&quot;{name}: {&#x27;set&#x27; if present else &#x27;MISSING&#x27;}&quot;)
+        ok = ok and present
+    print(&quot;Ready&quot; if ok else &quot;Not ready: fix the items above&quot;)
+    return 0 if ok else 1
+
+
+def main() -&gt; None:
+    args = sys.argv[1:]
+    if args and args[0] == &quot;--check&quot;:
+        sys.exit(_check())
+    if args and os.path.basename(args[0]).startswith(&quot;python&quot;):
+        args = args[1:]  # allow &quot;agent-starter-run python app.py&quot;
+    if not args or args[0] in (&quot;-h&quot;, &quot;--help&quot;):
+        print(USAGE)
+        sys.exit(0 if args else 2)
+
+    # Tracing must be on before the agent&#x27;s code is imported.
+    init_fiddler()
+
+    if args[0] == &quot;-m&quot;:
+        if len(args) &lt; 2:
+            print(USAGE)
+            sys.exit(2)
+        module = args[1]
+        sys.argv = [module] + args[2:]
+        sys.path.insert(0, os.getcwd())
+        runpy.run_module(module, run_name=&quot;__main__&quot;, alter_sys=True)
+    else:
+        script = args[0]
+        if not os.path.isfile(script):
+            print(f&quot;agent-starter-run: file not found: {script}&quot;)
+            sys.exit(2)
+        sys.argv = args
+        sys.path.insert(0, os.path.dirname(os.path.abspath(script)))
+        runpy.run_path(script, run_name=&quot;__main__&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre></div></details>
+      <details class="file"><summary><span class="fname">src/agent_starter/auto.py</span><span class="fnote">One-line import option</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;Importing this module turns on Fiddler tracing.
+
+One-line alternative to the launcher:  import agent_starter.auto
+&quot;&quot;&quot;
+
+from agent_starter.bootstrap import init_fiddler
+
+init_fiddler()</code></pre></div></details>
+    </li>
+
+    <li class="step" data-id="p5">
+      <div class="step-head"><h3>Build the template with a demo agent</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p><code>run.py</code> belongs to the starter pack and calls <code>init_fiddler()</code> before the agent is built. The customer only edits <code>agent/graph.py</code>, which must keep a <code>build_agent()</code> function. The demo is a small support assistant with two tools, so traces show LLM calls, tool calls and graph nodes.</p>
+      <details class="file"><summary><span class="fname">template/agent/graph.py</span><span class="fnote">The demo agent (customer edits this)</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;YOUR AGENT GOES HERE. This is the only file you need to edit.
+
+Demo: a support assistant that can look up orders and do simple math.
+Replace the tools, prompt and graph with your own. Keep a build_agent()
+function that returns a compiled LangGraph graph.
+&quot;&quot;&quot;
+
+import os
+from typing import Annotated, TypedDict
+
+from langchain_core.messages import SystemMessage
+from langchain_core.tools import tool
+from langchain_aws import ChatBedrockConverse
+from langgraph.graph import START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.prebuilt import ToolNode, tools_condition
+
+SYSTEM_PROMPT = SystemMessage(
+    &quot;You are a friendly support assistant. Use the tools when they help. &quot;
+    &quot;Keep answers short.&quot;
+)
+
+# Any Bedrock model that supports tool use. Copy the ID from the Bedrock console.
+DEFAULT_MODEL_ID = &quot;us.anthropic.claude-haiku-4-5-20251001-v1:0&quot;
+
+FAKE_ORDERS = {&quot;A100&quot;: &quot;shipped&quot;, &quot;A200&quot;: &quot;processing&quot;, &quot;A300&quot;: &quot;delivered&quot;}
+
+
+@tool
+def get_order_status(order_id: str) -&gt; str:
+    &quot;&quot;&quot;Look up the status of an order by its ID, for example A100.&quot;&quot;&quot;
+    return FAKE_ORDERS.get(order_id.strip().upper(), &quot;not found&quot;)
+
+
+@tool
+def add_numbers(a: float, b: float) -&gt; float:
+    &quot;&quot;&quot;Add two numbers together.&quot;&quot;&quot;
+    return a + b
+
+
+TOOLS = [get_order_status, add_numbers]
+
+
+class State(TypedDict):
+    messages: Annotated[list, add_messages]
+
+
+def build_agent():
+    # AWS credentials come from the standard chain: env vars, AWS_PROFILE, SSO or an IAM role.
+    llm = ChatBedrockConverse(
+        model=os.getenv(&quot;BEDROCK_MODEL_ID&quot;, DEFAULT_MODEL_ID),
+        region_name=os.getenv(&quot;AWS_REGION&quot;, &quot;us-east-1&quot;),
+        temperature=0,
+    )
+    llm_with_tools = llm.bind_tools(TOOLS)
+
+    def call_model(state: State):
+        return {&quot;messages&quot;: [llm_with_tools.invoke([SYSTEM_PROMPT] + state[&quot;messages&quot;])]}
+
+    graph = StateGraph(State)
+    graph.add_node(&quot;agent&quot;, call_model)
+    graph.add_node(&quot;tools&quot;, ToolNode(TOOLS))
+    graph.add_edge(START, &quot;agent&quot;)
+    graph.add_conditional_edges(&quot;agent&quot;, tools_condition)  # tool call? -&gt; tools, else end
+    graph.add_edge(&quot;tools&quot;, &quot;agent&quot;)
+    return graph.compile()</code></pre></div></details>
+      <details class="file"><summary><span class="fname">template/run.py</span><span class="fnote">Entry point (starter pack owns this)</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;Runs the agent with Fiddler tracing. Part of the starter pack: no need to edit.
+
+    python run.py                          # runs two demo questions
+    python run.py &quot;Where is order A200?&quot;   # asks your own question
+&quot;&quot;&quot;
+
+import sys
+import uuid
+
+from agent_starter import init_fiddler
+
+init_fiddler()  # must run before the agent is built
+
+from fiddler_langgraph import set_conversation_id  # noqa: E402
+
+from agent.graph import build_agent  # noqa: E402
+
+DEMO_QUESTIONS = [
+    &quot;What is the status of order A100?&quot;,
+    &quot;What is 21.5 plus 20.5?&quot;,
+]
+
+
+def main() -&gt; None:
+    agent = build_agent()
+    set_conversation_id(str(uuid.uuid4()))  # groups this run&#x27;s questions in Fiddler
+    for question in sys.argv[1:] or DEMO_QUESTIONS:
+        result = agent.invoke({&quot;messages&quot;: [(&quot;user&quot;, question)]})
+        print(f&quot;\nQ: {question}\nA: {result[&#x27;messages&#x27;][-1].text}&quot;)
+
+
+if __name__ == &quot;__main__&quot;:
+    main()</code></pre></div></details>
+      <details class="file"><summary><span class="fname">template/.env.example</span><span class="fnote">Settings the customer fills in</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code># Copy this file to .env and fill in the values. Never commit .env.
+
+# Fiddler (from your Fiddler application page)
+FIDDLER_API_KEY=
+FIDDLER_APPLICATION_ID=
+FIDDLER_URL=https://your-org.fiddler.ai
+
+# AWS Bedrock (LLM used by the demo agent)
+AWS_REGION=us-east-1
+BEDROCK_MODEL_ID=us.anthropic.claude-haiku-4-5-20251001-v1:0
+
+# AWS credentials: use ONE of these options
+# Option A: a named profile from ~/.aws/config (works with SSO: run &quot;aws sso login&quot; first)
+# AWS_PROFILE=my-profile
+# Option B: access keys (add AWS_SESSION_TOKEN for temporary credentials)
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_SESSION_TOKEN=
+# Option C: on EC2, ECS, Lambda or EKS with an IAM role, leave all of these unset
+
+# Optional: also print spans to the terminal while testing
+FIDDLER_CONSOLE_TRACER=false</code></pre></div></details>
+      <details class="file"><summary><span class="fname">template/requirements.txt</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code># The starter pack (Fiddler LangGraph SDK + bootstrap) is installed separately:
+#   local testing:  pip install -e ..
+#   customers:      pip install &quot;agent-starter @ git+https://github.com/YOUR_ORG/fiddler-agent-starter.git@v0.1.0&quot;
+langchain-aws&gt;=1.0</code></pre></div></details>
+      <details class="file"><summary><span class="fname">template/.gitignore</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>.env
+.venv/
+__pycache__/</code></pre></div></details>
+    </li>
+
+    <li class="step" data-id="p6">
+      <div class="step-head"><h3>Add a plain agent for testing the existing-agent path</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p>A ticket triage agent with two graph nodes and no Fiddler code at all. If it shows up in Fiddler, the no-code-change path works.</p>
+      <details class="file"><summary><span class="fname">examples/existing-agent/app.py</span><span class="fnote">Existing agent, no Fiddler code</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>&quot;&quot;&quot;An EXISTING agent with no Fiddler code in it.
+
+Ticket triage: classifies a support ticket, then drafts a reply.
+Used to show that the starter pack can trace an agent without editing it.
+&quot;&quot;&quot;
+
+import os
+import sys
+from typing import TypedDict
+
+from langchain_aws import ChatBedrockConverse
+from langgraph.graph import END, START, StateGraph
+
+llm = ChatBedrockConverse(
+    model=os.getenv(&quot;BEDROCK_MODEL_ID&quot;, &quot;us.anthropic.claude-haiku-4-5-20251001-v1:0&quot;),
+    region_name=os.getenv(&quot;AWS_REGION&quot;, &quot;us-east-1&quot;),
+    temperature=0,
+)
+
+
+class TicketState(TypedDict):
+    ticket: str
+    category: str
+    reply: str
+
+
+def classify(state: TicketState):
+    response = llm.invoke(
+        &quot;Classify this support ticket with one word: billing, technical or general.\n\n&quot;
+        f&quot;Ticket: {state[&#x27;ticket&#x27;]}&quot;
+    )
+    return {&quot;category&quot;: response.text.strip().lower()}
+
+
+def draft_reply(state: TicketState):
+    response = llm.invoke(
+        f&quot;Write a short, friendly reply to this {state[&#x27;category&#x27;]} support ticket.\n\n&quot;
+        f&quot;Ticket: {state[&#x27;ticket&#x27;]}&quot;
+    )
+    return {&quot;reply&quot;: response.text}
+
+
+graph = StateGraph(TicketState)
+graph.add_node(&quot;classify&quot;, classify)
+graph.add_node(&quot;draft_reply&quot;, draft_reply)
+graph.add_edge(START, &quot;classify&quot;)
+graph.add_edge(&quot;classify&quot;, &quot;draft_reply&quot;)
+graph.add_edge(&quot;draft_reply&quot;, END)
+app = graph.compile()
+
+
+if __name__ == &quot;__main__&quot;:
+    ticket = &quot; &quot;.join(sys.argv[1:]) or &quot;I was charged twice for my subscription this month.&quot;
+    result = app.invoke({&quot;ticket&quot;: ticket})
+    print(f&quot;Category: {result[&#x27;category&#x27;]}\n\nReply:\n{result[&#x27;reply&#x27;]}&quot;)</code></pre></div></details>
+      <details class="file"><summary><span class="fname">examples/existing-agent/requirements.txt</span></summary><div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>langgraph&gt;=1.0,&lt;2.0
+langchain-aws&gt;=1.0</code></pre></div></details>
+    </li>
+
+    <li class="step" data-id="p7">
+      <div class="step-head"><h3>Test both paths, then release</h3><label class="mark"><input type="checkbox"> Done</label></div>
+      <p>Run both tabs below end to end. When they pass, push to a private GitHub repo, tag a release, and turn on <em>Template repository</em> in the repo’s settings so customers can click “Use this template.”</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>git init &amp;&amp; git add . &amp;&amp; git commit -m &quot;Starter pack v0.1.0&quot;
+git remote add origin https://github.com/YOUR_ORG/fiddler-agent-starter.git
+git push -u origin main
+git tag v0.1.0 &amp;&amp; git push origin v0.1.0</code></pre></div>
+      <p>Give customers access to the repo (collaborators or your shared GitHub organization). Customers then install a fixed version with:</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>pip install &quot;agent-starter @ git+https://github.com/YOUR_ORG/fiddler-agent-starter.git@v0.1.0&quot;</code></pre></div>
+      <div class="note"><p><strong>Versioning.</strong> When you upgrade <code>fiddler-langgraph</code>, change the pin in <code>pyproject.toml</code>, rerun both tests, bump <code>version</code>, and tag a new release. Customers move up by changing <code>@v0.1.0</code> to the new tag.</p></div>
+    </li>
+  </ol>
+</section>
+
+<section id="use">
+  <h2>Part 2: test the starter pack</h2>
+  <p>Before you start, have these ready: Python 3.11 or newer (<code>python3 --version</code>), a Fiddler application with its API key, application ID (a UUID) and instance URL, and AWS access to Amazon Bedrock for the demo LLM calls. Commands are for macOS and Linux; Windows equivalents are noted where they differ.</p>
+  <div class="note"><p><strong>Bedrock setup.</strong> The demo uses Claude Haiku 4.5 on Bedrock through the cross-region inference profile <code>us.anthropic.claude-haiku-4-5-20251001-v1:0</code>. In the Bedrock console, make sure this model is enabled for your account in your region, and that your AWS identity is allowed <code>bedrock:InvokeModel</code> and <code>bedrock:Converse</code>. Any Bedrock model that supports tool use works: copy its model ID or inference profile ID into <code>BEDROCK_MODEL_ID</code>. For EU or APAC regions, use the matching <code>eu.</code> or <code>apac.</code> profile.</p></div>
+  <p>Check that your AWS credentials work before starting: <code>aws sts get-caller-identity</code> should print your account. With AWS SSO, run <code>aws sso login --profile your-profile</code> first.</p>
+
+  <div class="tabbar" role="tablist" aria-label="Test paths">
+    <button class="tab" role="tab" id="tab-new-agent" aria-controls="new-agent" aria-selected="true" data-view="new-agent">New agent<span class="count" data-count="new"></span></button>
+    <button class="tab" role="tab" id="tab-existing-agent" aria-controls="existing-agent" aria-selected="false" data-view="existing-agent">Existing agent<span class="count" data-count="existing"></span></button>
+  </div>
+
+  <!-- ===== NEW AGENT ===== -->
+  <div class="panel" id="new-agent" role="tabpanel" aria-labelledby="tab-new-agent">
+    <div class="progress"><span>Build the demo support agent from the template. Tracing is on from the first run.</span><button class="reset" type="button" data-reset="new">Clear checkmarks</button></div>
+    <ol class="steps" data-group="new">
+      <li class="step" data-id="n1">
+        <div class="step-head"><h3>Get the starter pack</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Unzip <code>fiddler-agent-starter.zip</code>, or once it’s on GitHub, click “Use this template” and clone your copy. Then go into the template folder.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>unzip fiddler-agent-starter.zip
+cd fiddler-agent-starter/template</code></pre></div>
+      </li>
+      <li class="step" data-id="n2">
+        <div class="step-head"><h3>Create a virtual environment</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>python3 -m venv .venv
+source .venv/bin/activate</code></pre></div>
+        <p>On Windows (PowerShell): <code>py -3.11 -m venv .venv</code> then <code>.venv\Scripts\Activate.ps1</code>.</p>
+      </li>
+      <li class="step" data-id="n3">
+        <div class="step-head"><h3>Install the starter pack and the Bedrock library</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>For local testing, install the starter pack from the parent folder. This also installs the pinned Fiddler LangGraph SDK and LangGraph. The requirements file adds <code>langchain-aws</code>, which brings in <code>boto3</code>.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>pip install -e ..
+pip install -r requirements.txt</code></pre></div>
+        <div class="expect"><p><strong>Expect:</strong> <code>pip show fiddler-langgraph</code> reports version 1.8.0.</p></div>
+      </li>
+      <li class="step" data-id="n4">
+        <div class="step-head"><h3>Fill in your settings</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>cp .env.example .env</code></pre></div>
+        <p>Windows: <code>copy .env.example .env</code>. Open <code>.env</code> and set <code>FIDDLER_API_KEY</code>, <code>FIDDLER_APPLICATION_ID</code>, <code>FIDDLER_URL</code> and <code>AWS_REGION</code>. Keep the default <code>BEDROCK_MODEL_ID</code> or replace it. For AWS credentials, set <code>AWS_PROFILE</code> to a profile from <code>~/.aws/config</code>, or uncomment the access key lines, or leave both unset if you’re on an AWS machine with an IAM role. For your first run, set <code>FIDDLER_CONSOLE_TRACER=true</code> so spans also print in the terminal.</p>
+      </li>
+      <li class="step" data-id="n5">
+        <div class="step-head"><h3>Check the setup</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>agent-starter-run --check</code></pre></div>
+        <div class="expect"><p><strong>Expect:</strong> each <code>FIDDLER_*</code> line says <code>set</code> and the last line says <code>Ready</code>. Any <code>MISSING</code> line names what to fix in <code>.env</code>.</p></div>
+      </li>
+      <li class="step" data-id="n6">
+        <div class="step-head"><h3>Run the demo agent</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>python run.py</code></pre></div>
+        <div class="expect"><p><strong>Expect:</strong> the first line is <code>[agent-starter] Fiddler tracing is ON -&gt; your URL</code>, followed by two answers: order A100 has shipped, and 21.5 plus 20.5 is 42. With the console tracer on, you’ll also see span JSON with names like <code>agent</code>, <code>tools</code>, <code>get_order_status</code> and <code>LangGraph</code>.</p></div>
+        <p>Ask your own question with <code>python run.py "Where is order A200?"</code>.</p>
+      </li>
+      <li class="step" data-id="n7">
+        <div class="step-head"><h3>Confirm the traces in Fiddler</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Open your application in Fiddler and look at its traces. Allow a minute for them to arrive. Each question is one trace with a <code>LangGraph</code> root span, the <code>agent</code> and <code>tools</code> nodes, the LLM calls, and the <code>get_order_status</code> or <code>add_numbers</code> tool call. Both questions from one run share a conversation ID.</p>
+      </li>
+      <li class="step" data-id="n8">
+        <div class="step-head"><h3>Check the safety net</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Comment out <code>FIDDLER_API_KEY</code> in <code>.env</code> and run <code>python run.py</code> again.</p>
+        <div class="expect"><p><strong>Expect:</strong> <code>Fiddler tracing is OFF. Missing: FIDDLER_API_KEY</code>, and the agent still answers. Put the key back afterwards.</p></div>
+      </li>
+      <li class="step" data-id="n9">
+        <div class="step-head"><h3>Make it your own agent</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Change the tools, prompt and graph in <code>agent/graph.py</code>. As long as it keeps a <code>build_agent()</code> function that returns a compiled graph, tracing keeps working with no other changes. Set <code>FIDDLER_CONSOLE_TRACER=false</code> once you’re done testing.</p>
+      </li>
+    </ol>
+  </div>
+
+  <!-- ===== EXISTING AGENT ===== -->
+  <div class="panel" id="existing-agent" role="tabpanel" aria-labelledby="tab-existing-agent" hidden>
+    <div class="progress"><span>Add tracing to the ticket triage agent without editing its code.</span><button class="reset" type="button" data-reset="existing">Clear checkmarks</button></div>
+    <ol class="steps" data-group="existing">
+      <li class="step" data-id="e1">
+        <div class="step-head"><h3>Go to the existing agent</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Use the sample agent in the starter pack. To test with a real agent of your own, use its folder instead, and replace <code>app.py</code> below with its entry file.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>cd fiddler-agent-starter/examples/existing-agent</code></pre></div>
+      </li>
+      <li class="step" data-id="e2">
+        <div class="step-head"><h3>Run it as it is today, without tracing</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>This gives you a baseline that proves the agent works before the starter pack is involved.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+export AWS_REGION=us-east-1
+export AWS_PROFILE=your-profile        # or AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY
+python app.py</code></pre></div>
+        <p>Windows (PowerShell): <code>.venv\Scripts\Activate.ps1</code> and <code>$env:AWS_REGION="us-east-1"</code>, <code>$env:AWS_PROFILE="your-profile"</code>. The default model ID is set in <code>app.py</code>; override it with <code>BEDROCK_MODEL_ID</code>.</p>
+        <div class="expect"><p><strong>Expect:</strong> a category (billing) and a drafted reply. No <code>[agent-starter]</code> lines and nothing in Fiddler.</p></div>
+      </li>
+      <li class="step" data-id="e3">
+        <div class="step-head"><h3>Install the starter pack into the agent’s environment</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>pip install -e ../..</code></pre></div>
+        <p>A customer installs the released version instead:</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>pip install &quot;agent-starter @ git+https://github.com/YOUR_ORG/fiddler-agent-starter.git@v0.1.0&quot;</code></pre></div>
+        <div class="note"><p><strong>Check versions.</strong> The SDK needs Python 3.11+ and LangGraph 1.x. If the existing agent is on LangGraph 0.x, pip will report a conflict; upgrade the agent first.</p></div>
+      </li>
+      <li class="step" data-id="e4">
+        <div class="step-head"><h3>Provide the Fiddler settings</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Either copy the template’s settings file into this folder, or export the variables in your shell. The launcher reads <code>.env</code> from the folder you run it in, and shell values win over the file.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>cp ../../template/.env.example .env
+# then fill in FIDDLER_API_KEY, FIDDLER_APPLICATION_ID, FIDDLER_URL
+# and AWS_REGION, BEDROCK_MODEL_ID and your AWS credentials option</code></pre></div>
+        <p>Or in the shell:</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>export FIDDLER_API_KEY=...
+export FIDDLER_APPLICATION_ID=...
+export FIDDLER_URL=https://your-org.fiddler.ai
+export FIDDLER_CONSOLE_TRACER=true</code></pre></div>
+      </li>
+      <li class="step" data-id="e5">
+        <div class="step-head"><h3>Check the setup</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>agent-starter-run --check</code></pre></div>
+        <div class="expect"><p><strong>Expect:</strong> <code>Ready</code> on the last line.</p></div>
+      </li>
+      <li class="step" data-id="e6">
+        <div class="step-head"><h3>Run the same agent through the launcher</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>The only change is the command. <code>app.py</code> is untouched.</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>agent-starter-run python app.py</code></pre></div>
+        <p>Other forms work too: <code>agent-starter-run app.py "My login keeps failing"</code> passes arguments through, and <code>agent-starter-run python -m mypackage.main</code> runs a module.</p>
+        <div class="expect"><p><strong>Expect:</strong> <code>[agent-starter] Fiddler tracing is ON</code>, then the same category and reply as in step 2. With the console tracer on, spans named <code>classify</code>, <code>draft_reply</code> and <code>LangGraph</code> appear.</p></div>
+      </li>
+      <li class="step" data-id="e7">
+        <div class="step-head"><h3>Confirm the traces in Fiddler</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>Each run is one trace with a <code>LangGraph</code> root span, the <code>classify</code> and <code>draft_reply</code> nodes, and an LLM call under each. Run <code>git diff</code> or compare with the zip to confirm <code>app.py</code> didn’t change.</p>
+      </li>
+      <li class="step" data-id="e8">
+        <div class="step-head"><h3>Try the one-line option</h3><label class="mark"><input type="checkbox"> Done</label></div>
+        <p>For platforms where you can’t change the run command (a fixed Docker <code>CMD</code>, a hosting service, a notebook), add this as the very first line of the entry file, then run the agent normally with <code>python app.py</code>:</p>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>import agent_starter.auto  # turns on Fiddler tracing; must be first</code></pre></div>
+        <div class="expect"><p><strong>Expect:</strong> the same <code>Fiddler tracing is ON</code> line and the same traces as step 6. Remove the line afterwards to keep the sample unedited.</p></div>
+      </li>
+      <li class="step" data-id="e9">
+        <div class="step-head"><h3>Check the off switch</h3><label class="mark"><input type="checkbox"> Done</label></div>
+<div class="code"><button class="copy" type="button" aria-label="Copy code">Copy</button><pre><code>AGENT_STARTER_DISABLE=1 agent-starter-run python app.py</code></pre></div>
+        <div class="expect"><p><strong>Expect:</strong> <code>Fiddler tracing is OFF (AGENT_STARTER_DISABLE is set)</code> and a normal answer. Running plain <code>python app.py</code> also returns the agent to how it was before.</p></div>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section id="troubleshooting">
+  <h2>If something goes wrong</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>What you see</th><th>Likely cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td><code>agent-starter-run: command not found</code></td><td>The virtual environment isn’t active, or the starter pack isn’t installed in it. Activate <code>.venv</code> and rerun the install step.</td></tr>
+      <tr><td>pip says <code>requires a different Python</code></td><td>The SDK needs Python 3.11+. Create the venv with <code>python3.11 -m venv .venv</code> (or <code>py -3.11</code> on Windows).</td></tr>
+      <tr><td><code>Fiddler tracing is OFF. Missing: …</code></td><td>The named variables aren’t set. Check that <code>.env</code> is in the folder you run from, or export them in the shell.</td></tr>
+      <tr><td><code>Setup failed</code> mentioning the application ID</td><td><code>FIDDLER_APPLICATION_ID</code> must be the application’s UUID from Fiddler, not its name.</td></tr>
+      <tr><td>Tracing is on but nothing appears in Fiddler</td><td>Wait a minute and refresh. Check <code>FIDDLER_URL</code> is your instance URL with <code>https://</code>, the API key is valid, and the network allows outbound HTTPS to it. Export errors print in the terminal.</td></tr>
+      <tr><td>Spans print locally but some nodes are missing</td><td>Tracing was turned on after the graph ran. With the launcher this can’t happen; with the import option, make sure <code>import agent_starter.auto</code> is the first line.</td></tr>
+      <tr><td><code>NoCredentialsError</code> or <code>Unable to locate credentials</code></td><td>boto3 found no AWS credentials. Set <code>AWS_PROFILE</code> (and run <code>aws sso login</code> for SSO profiles) or the access key variables. Confirm with <code>aws sts get-caller-identity</code>.</td></tr>
+      <tr><td><code>AccessDeniedException</code> from Bedrock</td><td>The model isn’t enabled for your account in that region, or your IAM identity lacks <code>bedrock:InvokeModel</code>. Enable the model in the Bedrock console and check the IAM policy.</td></tr>
+      <tr><td><code>ValidationException</code> mentioning the model ID or on-demand throughput</td><td>The model ID doesn’t exist in that region, or the model must be called through an inference profile. Copy the exact ID from the Bedrock console into <code>BEDROCK_MODEL_ID</code> and check <code>AWS_REGION</code> matches it.</td></tr>
+      <tr><td><code>ExpiredTokenException</code></td><td>Temporary credentials expired. Run <code>aws sso login</code> again or refresh <code>AWS_SESSION_TOKEN</code>.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<footer>
+  <p>SDK calls in <code>bootstrap.py</code> follow the <code>fiddler-langgraph</code> 1.8.0 package: <code>FiddlerClient(application_id, api_key, url)</code>, <code>LangGraphInstrumentor(client).instrument()</code> and <code>set_conversation_id()</code>. The demo agents call Bedrock through <code>langchain-aws</code>’s <code>ChatBedrockConverse</code>. If you pin a different version, check <a href="https://docs.fiddler.ai/integrations/agentic-ai/langgraph-sdk">Fiddler’s LangGraph SDK guide</a> for changes.</p>
+</footer>
+</div>
+
+<script>
+(function(){
+  var store = {
+    get: function(k){ try { return JSON.parse(localStorage.getItem(k) || "null"); } catch(e){ return null; } },
+    set: function(k,v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+  };
+  var KEY = "starter-guide-done";
+  var done = store.get(KEY) || {};
+
+  function counts(){
+    ["new","existing"].forEach(function(g){
+      var steps = document.querySelectorAll('.steps[data-group="'+g+'"] .step');
+      var n = 0; steps.forEach(function(s){ if (done[s.dataset.id]) n++; });
+      var el = document.querySelector('[data-count="'+g+'"]');
+      if (el) el.textContent = n + "/" + steps.length;
+    });
+  }
+  document.querySelectorAll(".step").forEach(function(step){
+    var box = step.querySelector(".mark input");
+    if (!box) return;
+    box.checked = !!done[step.dataset.id];
+    step.classList.toggle("done", box.checked);
+    box.addEventListener("change", function(){
+      done[step.dataset.id] = box.checked;
+      step.classList.toggle("done", box.checked);
+      store.set(KEY, done); counts();
+    });
+  });
+  document.querySelectorAll("[data-reset]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      document.querySelectorAll('.steps[data-group="'+btn.dataset.reset+'"] .step').forEach(function(s){
+        done[s.dataset.id] = false; s.classList.remove("done");
+        var b = s.querySelector(".mark input"); if (b) b.checked = false;
+      });
+      store.set(KEY, done); counts();
+    });
+  });
+  counts();
+
+  document.querySelectorAll(".copy").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var text = btn.parentNode.querySelector("code").innerText;
+      var finish = function(){ btn.textContent = "Copied"; btn.classList.add("ok");
+        setTimeout(function(){ btn.textContent = "Copy"; btn.classList.remove("ok"); }, 1500); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(finish, function(){ fallback(text); finish(); });
+      } else { fallback(text); finish(); }
+    });
+  });
+  function fallback(text){
+    var ta = document.createElement("textarea"); ta.value = text; ta.style.position = "absolute"; ta.style.left = "-9999px";
+    document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch(e){} document.body.removeChild(ta);
+  }
+
+  var views = ["new-agent","existing-agent"];
+  function show(view, scroll){
+    if (views.indexOf(view) < 0) view = "new-agent";
+    views.forEach(function(v){
+      document.getElementById(v).hidden = (v !== view);
+      document.getElementById("tab-"+v).setAttribute("aria-selected", v === view ? "true" : "false");
+    });
+    if (scroll) document.querySelector(".tabbar").scrollIntoView({block:"start"});
+  }
+  document.querySelectorAll(".tab").forEach(function(tab){
+    tab.addEventListener("click", function(){
+      if (location.hash !== "#" + tab.dataset.view) location.hash = tab.dataset.view; else show(tab.dataset.view);
+    });
+    tab.addEventListener("keydown", function(e){
+      if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+      var i = views.indexOf(tab.dataset.view), next = views[(i + (e.key === "ArrowRight" ? 1 : views.length - 1)) % views.length];
+      location.hash = next; document.getElementById("tab-"+next).focus();
+    });
+  });
+  window.addEventListener("hashchange", function(){
+    var h = location.hash.slice(1); if (views.indexOf(h) >= 0) show(h, true);
+  });
+  var initial = location.hash.slice(1);
+  show(views.indexOf(initial) >= 0 ? initial : "new-agent", views.indexOf(initial) >= 0);
+})();
+</script>
+</body>
+</html>
